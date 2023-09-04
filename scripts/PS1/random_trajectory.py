@@ -13,7 +13,7 @@ def random_trajectory(iterations: int) -> list:
     trajectory.append(value)
 
     # loop over the iterations and generate a random step in [-1, 1], then update the value
-    for i in range(iterations):
+    for i in range(iterations-1):
         step = random.uniform(-1, 1)
         value += step
         trajectory.append(value)
@@ -32,7 +32,7 @@ def monte_carlo_trajectory(iterations: int) -> list:
     value = 0
     trajectory.append(value)
 
-    for i in range(iterations):
+    for i in range(iterations-1):
         step = random.uniform(-1, 1)
         if step > 0.5:
             value += step
