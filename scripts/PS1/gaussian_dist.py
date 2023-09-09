@@ -15,15 +15,16 @@ def calculateGaussian(mean: float, standard_dev: float, x) -> float:
     return p * math.exp(-1 * (x - mean) ** 2 / (2 * standard_dev))
 
 
-def plotGaussian(mean: float, standard_dev: float, out_file=None, save=False):
+def plotGaussian(range, mean: float, standard_dev: float, out_file=None, save=False):
     """
     Plots the gaussian distribution with a given mean and std on the interval -6 to 6 with 100 data points
+    :param range: The range of x values to plot for
     :param save: If True, save the image to a file
     :param out_file: the name of the file to save
     :param mean: The mean
     :param standard_dev: The standard deviation
     """
-    x_values = np.linspace(-6, 6, 100)  # set 100 equally spaced values from -6 to 6
+    x_values = np.linspace(-range, range, 100)  # set 100 equally spaced values
     y_values = []
 
     for x in x_values:  # call the calculateGaussian function over the x values
@@ -45,4 +46,4 @@ def plotGaussian(mean: float, standard_dev: float, out_file=None, save=False):
 
 
 if __name__ == "__main__":
-    plotGaussian(0, 1, out_file="../../data/gaussian.png", save=True)
+    plotGaussian(6,0, 1, out_file="../../data/gaussian.png", save=True)
