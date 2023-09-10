@@ -49,8 +49,3 @@ def plotSampleHist(n, mean, std, range, save=False, out_file=None):
 
     if save:
         plt.savefig(out_file)
-
-
-if __name__ == "__main__":
-    plotSampleHist(2000, 2, 3, 10, save=True, out_file="../../data/normalHist.png")
-
