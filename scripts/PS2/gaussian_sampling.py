@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
 from numpy import random
-from PS1.gaussian_dist import calculateGaussian
+from PS1.gaussian_dist import calculate_gaussian
 
 
-def sampleGaussian(n, mean, std):
+def sample_gaussian(n, mean, std):
     """
     Samples from a normal probability distribution with seed given by the date
     :param n: The number of samples
@@ -21,7 +21,7 @@ def sampleGaussian(n, mean, std):
     return samples
 
 
-def plotSampleHist(n, mean, std, range, save=False, out_file=None):
+def plot_sample_hist(n, mean, std, range, save=False, out_file=None):
     """
     Plots histogram of random normal samples compared to the continuous distribution.
     Divided into 30 bins
@@ -32,14 +32,14 @@ def plotSampleHist(n, mean, std, range, save=False, out_file=None):
     :param save: If the file should be saved
     :param out_file: Where to save the file
     """
-    samples = sampleGaussian(n, mean, std)
+    samples = sample_gaussian(n, mean, std)
     count, bins, ignored = plt.hist(samples, 30, density=True)  # generates the normalized histogram
     xs = np.linspace(-range, range, 100)  # set the x-axis
     ys = []
 
     # continuous distribution
     for x in xs:
-        ys.append(calculateGaussian(mean, std, x))
+        ys.append(calculate_gaussian(mean, std, x))
 
     # plotting code
     plt.plot(xs, ys)

@@ -6,7 +6,7 @@ import pandas as pd
 data = {"t (s)": [], "A (uM)": [], "B (uM)": []}
 
 
-def generateReactionData(file_in: str, file_out: str) -> list:
+def generate_reaction_data(file_in: str, file_out: str) -> list:
     """
     Calculates and graphs the formation of the product AB from reaction data, writes to
     a new output file the original data plus an AB column.
@@ -43,4 +43,4 @@ def generateReactionData(file_in: str, file_out: str) -> list:
 
 # Example usage (not called when imported)
 if __name__ == "__main__":
-    ab = generateReactionData("../../data/A_B_vs_time.dat", "../../data/A_B_product.dat")
+    ab = generate_reaction_data("../../data/A_B_vs_time.dat", "../../data/A_B_product.dat")

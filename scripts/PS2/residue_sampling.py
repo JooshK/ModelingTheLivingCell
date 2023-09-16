@@ -50,7 +50,7 @@ amino_acid_scale_values = {
 }
 
 
-def uniformSampling(length):
+def uniform_sampling(length):
     samples = []
     sequence = []
 
@@ -63,7 +63,7 @@ def uniformSampling(length):
     return sequence
 
 
-def swissProtKBSampling(length):
+def swiss_prot_sampling(length):
     amino_acids = list(amino_acid_scale_values.keys())
     probs = list(amino_acid_scale_values.values())
 

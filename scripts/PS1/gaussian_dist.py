@@ -1,9 +1,10 @@
 import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def calculateGaussian(mean: float, standard_dev: float, x) -> float:
+def calculate_gaussian(mean: float, standard_dev: float, x) -> float:
     """
     Calculates a standard normal distribution
     :param mean: the mean of distribution
@@ -15,7 +16,7 @@ def calculateGaussian(mean: float, standard_dev: float, x) -> float:
     return p * math.exp(-1 * (x - mean) ** 2 / (2 * standard_dev))
 
 
-def plotGaussian(range, mean: float, standard_dev: float, out_file=None, save=False):
+def plot_gaussian(range, mean: float, standard_dev: float, out_file=None, save=False):
     """
     Plots the gaussian distribution with a given mean and std on the interval -6 to 6 with 100 data points
     :param range: The range of x values to plot for
@@ -28,7 +29,7 @@ def plotGaussian(range, mean: float, standard_dev: float, out_file=None, save=Fa
     y_values = []
 
     for x in x_values:  # call the calculateGaussian function over the x values
-        p = calculateGaussian(mean, standard_dev, x)
+        p = calculate_gaussian(mean, standard_dev, x)
         y_values.append(p)
 
     # normalize the y values and check
@@ -46,4 +47,4 @@ def plotGaussian(range, mean: float, standard_dev: float, out_file=None, save=Fa
 
 
 if __name__ == "__main__":
-    plotGaussian(6,0, 1, out_file="../../data/gaussian.png", save=True)
+    plot_gaussian(6, 0, 1, out_file="../../data/gaussian.png", save=True)

@@ -13,7 +13,7 @@ def diffusional_spreading(out_file: str):
     std = np.linspace(0.1, 2, 10)  # 10 equally spaced values from 0.1 to 2
 
     for s in std:  # loop over the standard devs and plot without saving
-        gaussian_dist.plotGaussian(mean, s, save=False)
+        gaussian_dist.plot_gaussian(mean, s, save=False)
 
     plt.title("Gaussian Distributions With Varying Std.Dev.")
     plt.savefig(out_file)
