@@ -42,12 +42,10 @@ def plot_sample_hist(n, mean, std, range, save=False, out_file=None):
         ys.append(calculate_gaussian(mean, std, x))
 
     # plotting code
-    ax, fig = plt.figure()
-    ax.plot(xs, ys)
-    ax.set_xlabel("x")
-    ax.set_ylabel("p(x)")
-    ax.set_title("Sampled vs. Continuous Normal Distribution")
+    plt.plot(xs, ys)
+    plt.xlabel("x")
+    plt.ylabel("p(x)")
+    plt.title("Sampled vs. Continuous Normal Distribution")
 
     if save and out_file is not None:
         plt.savefig(out_file)
-    return ax
