@@ -15,7 +15,9 @@ def euler_method(func: Callable, step_size, t_0, y_0, n):
     y = [y_0]
     t = [t_0]
     for i in range(n):
-        y_next = step_size * func(y[i])+y[i]
+        dy_dt = func(y[i])
+        y_next = y[i] + (step_size * dy_dt)
+        t_next = t[i] + step_size
         y.append(y_next)
-        t.append(t[i] + step_size)
+        t.append(t_next)
     return t, y
