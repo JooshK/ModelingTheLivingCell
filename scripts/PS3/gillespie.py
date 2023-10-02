@@ -11,48 +11,41 @@ def reaction_combinations(state):
 
 
 class GillespieSimulation:
-    def __init__(self, c, initial_state, reactions):
+    def __init__(self, c, initial_state, reactions, m, h):
         self.c = c
         self.initial_state = initial_state
         self.reactions = reactions
-        self.a = []
+        self.m = m
+        self.h = h
         self.a0 = 0
         self.t = 0
 
-    def generate_propensity(self, state):
-        for i, c_i in enumerate(self.c):
-            h = reaction_combinations(state)
-            a_i = h[i]*c_i
-            self.a.append(a_i)
-        self.a0 = sum(self.a)
-
-    def sample_reaction(self, states):
-        r1 = random.random()
-        r2 = random.random()
-        self.generate_propensity(states)
-
-        tau = 1 / self.a0 * np.log(1 / r1)
-        mu = 0
-        n = r2*self.a0 - self.a[mu]
-        while n > 0:
-            mu += 1
-            n -= self.a[mu]
-
-        return tau, mu
-
     def run(self, n):
-        state = [self.initial_state]
+        states = [self.initial_state]
+        t = [0]
+
         for i in range(n):
-            print(state)
-            tau, mu = self.sample_reaction(state[i])
+            x_i = states[i][0]
+            y_i = states[i][1]
+            a = []
 
-            self.t += tau
-            r_mu = self.reactions[mu]
-            new_state = []
-            for species, coefficient in enumerate(r_mu):
-                new_state.append(state[i][species] + coefficient)
-            state.append(new_state)
+            for rxn in range(self.m):
+                a_i = self.h[rxn](x_i, y_i)*self.c[rxn]
+                a.append(a_i)
 
-        return state
+            r_1 = np.random.random()
+            r_2 = np.random.random()
+            a0 = sum(a)
 
+            tau = (1/a0)*np.log(1/r_1)
+            mu = 0
+            N = r_2*a0 - a[mu]
+            while N > 0:
+                mu += 1
+                N -= a[mu]
+            x = x_i + self.reactions[mu][0]
+            y = y_i + self.reactions[mu][1]
+            t.append(t[i] + tau)
+            states.append([x, y])
+        return np.array(t), np.array(states)
 
