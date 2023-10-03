@@ -48,4 +48,3 @@ class GillespieSimulation:
             t.append(t[i] + tau)
             states.append([x, y])
         return np.array(t), np.array(states)
-
