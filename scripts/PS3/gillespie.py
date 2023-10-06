@@ -1,16 +1,12 @@
 import numpy as np
-import random
-
-
-def reaction_combinations(state):
-    h0 = 1
-    h1 = state[0]*state[1]
-    h2 = state[0]
-    h3 = state[0]
-    return [h0, h1, h2, h3]
 
 
 class GillespieSimulation:
+    """
+    Runs the Gillespie Algo for the stochastic calculation of reaction kinetics.
+    Given some initial state, reaction description, channels and propensity functions, returns the matrix of sampled
+    time and states.
+    """
     def __init__(self, c, initial_state, reactions, m, h):
         self.c = c
         self.initial_state = initial_state
