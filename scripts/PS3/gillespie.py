@@ -11,40 +11,63 @@ def reaction_combinations(state):
 
 
 class GillespieSimulation:
-    def __init__(self, c, initial_state, reactions, m, h):
-        self.c = c
-        self.initial_state = initial_state
-        self.reactions = reactions
-        self.m = m
-        self.h = h
-        self.a0 = 0
-        self.t = 0
+    def update_propensity(self, propensities, state, c):
+        """
+        Updates propensity matrix
+        :param propensities: matrix of props
+        :param state: Current State
+        :param c: Parameters
+        """
+        x, y = state
+        c0, c1, c2, c3 = c
 
-    def run(self, n):
-        states = [self.initial_state]
-        t = [0]
+        propensities[0] = 1*c0
+        propensities[1] = x*y*c1
+        propensities[2] = x*c2
+        propensities[3] = x*c3
 
-        for i in range(n):
-            x_i = states[i][0]
-            y_i = states[i][1]
-            a = []
 
-            for rxn in range(self.m):
-                a_i = self.h[rxn](x_i, y_i)*self.c[rxn]
-                a.append(a_i)
+    def mu(self, probs):
+        r2 = np.random.rand()
+        i = 0
+        cdf = 0.0
 
-            r_1 = np.random.random()
-            r_2 = np.random.random()
-            a0 = sum(a)
+        while cdf < r2:
+            cdf += probs[i]
+            i += 1
+        return i - 1
 
-            tau = (1/a0)*np.log(1/r_1)
-            mu = 0
-            N = r_2*a0 - a[mu]
-            while N > 0:
-                mu += 1
-                N -= a[mu]
-            x = x_i + self.reactions[mu][0]
-            y = y_i + self.reactions[mu][1]
-            t.append(t[i] + tau)
-            states.append([x, y])
-        return np.array(t), np.array(states)
+    def gillespie_update(self, propensity):
+        a0 = sum(propensity)
+        tau = np.random.exponential(1.0/a0)  # equivalent but faster version of ln(URN)
+        reaction_probabilities = propensity/a0
+
+        mu = self.mu(reaction_probabilities)
+        return mu, tau
+
+    def run(self, reactions, initial_propensity, initial_state, time, c):
+        states = np.empty((len(time), reactions.shape[1]), dtype=int)
+
+        time_index = 0
+        i = 0
+        t = time[0]
+        state = initial_state.copy()
+        states[0, :] = state
+        propensity = initial_propensity
+
+        while i < len(time):
+
+            while t < time[time_index]:
+                reaction, tau = self.gillespie_update(propensity)
+                state += reactions[reaction, :]
+                t += tau
+                self.update_propensity(propensity, state, c)
+
+            i = np.searchsorted(time > t, True)
+            states[time_index:min(i, len(time))] = state
+            time_index = i
+        return states
+
+
+
+
