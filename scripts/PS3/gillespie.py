@@ -1,46 +1,43 @@
-import numpy as np
+import random
 
 
-class GillespieSimulation:
+def simulate(initials, propensities, stoichiometry, duration):
     """
-    Runs the Gillespie Algo for the stochastic calculation of reaction kinetics.
-    Given some initial state, reaction description, channels and propensity functions, returns the matrix of sampled
-    time and states.
+    Run a simulation with given model.
+
+    :param initials: List of initial population counts.
+    :param propensities: List of functions that take population counts and give transition rates.
+    :param stoichiometry: List of integers, how the population counts change per transition.
+    :param duration: Maximum simulation time.
+    :return: Two lists: The time points and population counts per time point.
     """
-    def __init__(self, c, initial_state, reactions, m, h):
-        self.c = c
-        self.initial_state = initial_state
-        self.reactions = reactions
-        self.m = m
-        self.h = h
-        self.a0 = 0
-        self.t = 0
 
-    def run(self, n):
-        states = [self.initial_state]
-        t = [0]
+    # initial values
+    times = [0.0]
+    counts = [initials]
 
-        for i in range(n):
-            x_i = states[i][0]
-            y_i = states[i][1]
-            a = []
+    # while finish time has not been reached
+    while times[-1] < duration:
+        # get current state
+        state = counts[-1]
 
-            for rxn in range(self.m):
-                a_i = self.h[rxn](x_i, y_i)*self.c[rxn]
-                a.append(a_i)
+        # calculate rates with respective propensities
+        rates = [prop(*state) for prop in propensities]
 
-            r_1 = np.random.random()
-            r_2 = np.random.random()
-            a0 = sum(a)
+        # stop loop if no transitions available
+        if all(r == 0 for r in rates):
+            break
 
-            tau = (1/a0)*np.log(1/r_1)
-            mu = 0
-            N = r_2*a0 - a[mu]
-            while N > 0:
-                mu += 1
-                N -= a[mu]
-            x = x_i + self.reactions[mu][0]
-            y = y_i + self.reactions[mu][1]
-            t.append(t[i] + tau)
-            states.append([x, y])
-        return np.array(t), np.array(states)
+        # randomly draw one transition
+        transition = random.choices(stoichiometry, weights=rates)[0]
+        next_state = [a + b for a, b in zip(state, transition)]
+
+        # draw next time increment from random exponential distribution
+        # dt = math.log(1.0 / random.random()) / sum(weights)
+        dt = random.expovariate(sum(rates))
+
+        # append new values
+        times.append(times[-1] + dt)
+        counts.append(next_state)
+
+    return times, counts
