@@ -69,32 +69,54 @@ class MolecularDynamics:
     """
     Represents an instance of a molecular dynamics simulation
     """
-    def __init__(self, sigma, epsilon, box_length, m, T, n, positions, iterations):
+    def __init__(self, sigma, epsilon, box_length, m, T, n, dt, positions, iterations):
         self.epsilon = epsilon
         self.sigma = sigma
         self.m = m
         self.T = T
         self.n = n
-        self.positions0 = positions
-        self.positions_df = pd.DataFrame(self.positions0)
+        self.positions = positions
         self.box_length = box_length
+        self.dt = dt
 
         self.kinetic_energies = np.zeros(iterations)
         self.temperatures = np.zeros(iterations)
         self.potentials = np.zeros(iterations)
         self.energies = np.zeros(iterations)
+        self.forces = np.zeros(iterations)
 
-        self.dof = 3 * len(self.positions_df) - 3
-        self.v0 = rng.standard_normal((self.n, 3)) * np.sqrt(self.T)
-        self.px = np.sum(self.m * self.v0, axis=0)
-        self.v0 -= self.px / self.n
+        self.dof = 3 * len(self.positions) - 3
+        self.v = rng.standard_normal((self.n, 3)) * np.sqrt(self.T)
+        self.px = np.sum(self.m * self.v, axis=0)
+        self.v -= self.px / self.n
 
-        self.temp0 = sum(sum([v ** 2 / self.dof for v in self.v0]))
-        self.k0 = self.dof * 0.5 * k_b * self.temp0
+        self.temp = sum(sum([v ** 2 / self.dof for v in self.v]))
+        self.k = self.dof * 0.5 * k_b * self.temp
 
-        self.kinetic_energies[0] = self.k0
-        self.temperatures[0] = self.temp0
+        self.kinetic_energies[0] = self.k
+        self.temperatures[0] = self.temp
 
-        self.potential0, self.force0 = calculate_configuration_force(self.positions0, self.epsilon, self.sigma, 3.5)
+        self.potential0, self.force = calculate_configuration_force(self.positions, self.epsilon, self.sigma, 3.5)
         self.potentials[0] = self.potential0
-        self.energies[0] = self.potential0 + self.k0
+        self.energies[0] = self.potential0 + self.k
+
+    def verlet_update_position(self):
+        position_update = []
+        for r_i, v_i, f_i in zip(self.positions, self.v, self.force):
+            component_update = []
+            for i in range(3):
+                x_i_dt = r_i[i] + self.dt * v_i[i] + ((self.dt ** 2) / (2 * self.m)) * f_i[i]
+                component_update.append(x_i_dt)
+            position_update.append(component_update)
+        self.positions = np.array(position_update)
+
+    def verlet_update_velocity(self):
+        velocity_update = []
+        for v_i, f_i in zip(self.positions, self.force):
+            component_update = []
+            for i in range(3):
+                v_i_dt = v_i + (self.dt/(2*self.m))*(f_i[i])
+                component_update.append(v_i_dt)
+            velocity_update.append(component_update)
+        self.v = np.array(velocity_update)
+
