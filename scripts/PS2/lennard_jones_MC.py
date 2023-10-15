@@ -46,7 +46,7 @@ def calculate_configuration_potential(coordinates, e, sigma, length):
     :param e: Lennard Jones energy
     :param sigma: Size of molecules
     :param length: Length for PBC
-    :return: Average potential energy in Joules
+    :return: potential energy in Joules
     """
     distances = generate_distance_matrix(coordinates, length)
     potentials = [lennard_jones_potential(dist, e, sigma) for dist in distances]
