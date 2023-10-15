@@ -66,6 +66,9 @@ def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
 
 
 class MolecularDynamics:
+    """
+    Represents an instance of a molecular dynamics simulation
+    """
     def __init__(self, sigma, epsilon, box_length, m, T, n, positions, iterations):
         self.epsilon = epsilon
         self.sigma = sigma
@@ -93,3 +96,5 @@ class MolecularDynamics:
         self.temperatures[0] = self.temp0
 
         self.potential0, self.force0 = calculate_configuration_force(self.positions0, self.epsilon, self.sigma, 3.5)
+        self.potentials[0] = self.potential0
+        self.energies[0] = self.potential0 + self.k0
