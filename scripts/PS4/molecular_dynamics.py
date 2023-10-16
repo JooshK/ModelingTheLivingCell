@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
 
-rng = np.random.default_rng()
+rng = np.random.default_rng(123)
 k_b = 1.38
 
 
 def lennard_jones_potential(distance, epsilon, sigma):
     """
-    :returns LJ potential with parameters epsilon, sigma
+    returns LJ potential with parameters epsilon, sigma
     """
     return 4 * epsilon * ((sigma ** 12 / distance ** 6) - (sigma ** 6 / distance ** 3))
 
@@ -55,68 +55,65 @@ def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
             f_ij_x = calculate_force(delta_x, r2_ij, epsilon, sigma)  # force in each direction
             f_ij_y = calculate_force(delta_y, r2_ij, epsilon, sigma)
             f_ij_z = calculate_force(delta_z, r2_ij, epsilon, sigma)
-            f_ij = [f_ij_x, f_ij_y, f_ij_z]
+            f_ij = np.array([f_ij_x, f_ij_y, f_ij_z])
 
-            forces[i, :] = f_ij + forces[i, :]  # Uses N3L to calculate the force on j as - force on i
-            forces[j, :] = forces[j, :] - f_ij
+            forces[i] = forces[i] + f_ij  # Uses N3L to calculate the force on j as - force on i
+            forces[j] = forces[j] + f_ij
 
             potential += potential_ij
 
     return potential, forces
 
 
-class MolecularDynamics:
-    """
-    Represents an instance of a molecular dynamics simulation
-    """
-    def __init__(self, sigma, epsilon, box_length, m, T, n, dt, positions, iterations):
-        self.epsilon = epsilon
-        self.sigma = sigma
-        self.m = m
-        self.T = T
-        self.n = n
-        self.positions = positions
-        self.box_length = box_length
-        self.dt = dt
+def verlet_position_update(position, velocity, force, mass, time_step):
+    return position + time_step * velocity + ((time_step ** 2) / 2 * mass) * force
 
-        self.kinetic_energies = np.zeros(iterations)
-        self.temperatures = np.zeros(iterations)
-        self.potentials = np.zeros(iterations)
-        self.energies = np.zeros(iterations)
-        self.forces = np.zeros(iterations)
 
-        self.dof = 3 * len(self.positions) - 3
-        self.v = rng.standard_normal((self.n, 3)) * np.sqrt(self.T)
-        self.px = np.sum(self.m * self.v, axis=0)
-        self.v -= self.px / self.n
+def verlet_propagation_position(positions, velocities, forces, m, dt):
+    updated_positions = np.zeros((len(positions), 3))
+    for particle_i in range(len(positions)):
+        new_position = verlet_position_update(positions[particle_i, :], velocities[particle_i, :],
+                                              forces[particle_i, :], m, dt)
+        updated_positions[particle_i] = new_position
 
-        self.temp = sum(sum([v ** 2 / self.dof for v in self.v]))
-        self.k = self.dof * 0.5 * k_b * self.temp
+    return updated_positions
 
-        self.kinetic_energies[0] = self.k
-        self.temperatures[0] = self.temp
 
-        self.potential0, self.force = calculate_configuration_force(self.positions, self.epsilon, self.sigma, 3.5)
-        self.potentials[0] = self.potential0
-        self.energies[0] = self.potential0 + self.k
+def calculate_kinetic_energy(velocities, mass):
+    kinetic_energy = 0
+    for v_i in velocities:
+        squared_speed = v_i[0] ** 2 + v_i[1] ** 2 + v_i[2] ** 2
+        kinetic_energy_i = 0.5 * mass * squared_speed
 
-    def verlet_update_position(self):
-        position_update = []
-        for r_i, v_i, f_i in zip(self.positions, self.v, self.force):
-            component_update = []
-            for i in range(3):
-                x_i_dt = r_i[i] + self.dt * v_i[i] + ((self.dt ** 2) / (2 * self.m)) * f_i[i]
-                component_update.append(x_i_dt)
-            position_update.append(component_update)
-        self.positions = np.array(position_update)
+        kinetic_energy += kinetic_energy_i
+    return kinetic_energy
 
-    def verlet_update_velocity(self):
-        velocity_update = []
-        for v_i, f_i in zip(self.positions, self.force):
-            component_update = []
-            for i in range(3):
-                v_i_dt = v_i + (self.dt/(2*self.m))*(f_i[i])
-                component_update.append(v_i_dt)
-            velocity_update.append(component_update)
-        self.v = np.array(velocity_update)
 
+def run(initial_positions, T, m, dt, epsilon, sigma, box_length, iterations):
+    dof = 3 * len(initial_positions) - 3
+
+    # initialize the velocity and shift according to total momentum
+    initial_velocities = rng.standard_normal((len(initial_positions), 3)) * np.sqrt(T)
+    px = np.sum(m * initial_velocities, axis=0)
+    initial_velocities -= px / len(initial_positions)
+
+    # initialize the potential and the forces
+    initial_potential, initial_forces = calculate_configuration_force(initial_positions, epsilon, sigma, box_length)
+
+    # calculate energies
+    initial_ke = calculate_kinetic_energy(initial_velocities, m)
+    total_energy = initial_ke + initial_potential
+
+    velocities = [initial_velocities]
+    potentials = [initial_potential]
+    kinetic_energies = [initial_ke]
+    configurations = [initial_positions]
+    forces = [initial_forces]
+
+    # simulation loop
+    for i in range(iterations):
+        current_position = configurations[i]
+        current_velocities = velocities[i]
+        current_forces = forces[i]
+
+        position_dt = verlet_propagation_position(current_position, current_velocities, current_forces, m, dt)
