@@ -69,6 +69,10 @@ def verlet_position_update(position, velocity, force, mass, time_step):
     return position + time_step * velocity + ((time_step ** 2) / 2 * mass) * force
 
 
+def verlet_velocity_update(force, mass, time_step):
+    return (time_step/2*mass)*force
+
+
 def verlet_propagation_position(positions, velocities, forces, m, dt):
     updated_positions = np.zeros((len(positions), 3))
     for particle_i in range(len(positions)):
@@ -77,6 +81,16 @@ def verlet_propagation_position(positions, velocities, forces, m, dt):
         updated_positions[particle_i] = new_position
 
     return updated_positions
+
+
+def verlet_propagation_velocity(velocities, forces, m, dt):
+    updated_velocities = np.zeros((len(velocities), 3))
+    for particle_i in range(len(velocities)):
+        v_adj = verlet_velocity_update(forces[particle_i, :], m, dt)
+        v_new = v_adj + velocities[0, :]
+        updated_velocities[particle_i] = v_new
+
+    return updated_velocities
 
 
 def calculate_kinetic_energy(velocities, mass):
@@ -110,6 +124,8 @@ def run(initial_positions, T, m, dt, epsilon, sigma, box_length, iterations):
     configurations = [initial_positions]
     forces = [initial_forces]
 
+    print("Initial total energy", total_energy)
+
     # simulation loop
     for i in range(iterations):
         current_position = configurations[i]
@@ -117,3 +133,26 @@ def run(initial_positions, T, m, dt, epsilon, sigma, box_length, iterations):
         current_forces = forces[i]
 
         position_dt = verlet_propagation_position(current_position, current_velocities, current_forces, m, dt)
+        velocity_dt_1 = verlet_propagation_velocity(current_velocities, current_forces, m, dt)
+
+        new_potential, new_forces = calculate_configuration_force(position_dt, epsilon, sigma, box_length)
+        velocity_dt = verlet_propagation_velocity(velocity_dt_1, new_forces, m, dt)
+
+        new_kinetic_energy = calculate_kinetic_energy(velocity_dt, m)
+        total_energy = new_kinetic_energy + new_potential
+
+        configurations.append(position_dt)
+        velocities.append(velocity_dt)
+        potentials.append(new_potential)
+        forces.append(new_forces)
+        kinetic_energies.append(new_kinetic_energy)
+
+        if i % 10 == 0:
+            print("Final total energy", total_energy)
+            print("Configuration", configurations[i])
+            print("Velocities", velocities[i])
+            print("Potential", potentials[i])
+            print("Forces", forces[i])
+            print("Kinetic Energy", kinetic_energies[i])
+
+    return configurations, velocities, potentials, forces, kinetic_energies
