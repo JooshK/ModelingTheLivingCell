@@ -1,23 +1,11 @@
-from typing import Callable
+import numpy as np
 
 
-def euler_method(func: Callable, step_size, t_0, y_0, n):
-    """
-    Runs euler method to approximate the solution for a differential equation
-    :param func: the function dy/dt (depends only on y)
-    :param step_size: Step size to take
-    :param t_0: Initial value of t
-    :param y_0: Initial value of y
-    :param n: Number of step sizes
-    :return: List of time steps and corresponding y values
-    """
+def euler_method(func, step_size, min_range=0, max_range=0.1, y_0=100):
+    x = np.arange(min_range, max_range + step_size, step_size)
+    y = np.zeros(len(x))
 
-    y = [y_0]
-    t = [t_0]
-    for i in range(n):
-        dy_dt = func(y[i])
-        y_next = y[i] + (step_size * dy_dt)
-        t_next = t[i] + step_size
-        y.append(y_next)
-        t.append(t_next)
-    return t, y
+    y[0] = y_0
+    for index in range(1, len(x)):
+        y[index] = y[index - 1] + step_size * func(y[index - 1])
+    return x, y

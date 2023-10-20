@@ -1,43 +1,35 @@
 import random
+import numpy as np
 
 
-def simulate(initials, propensities, stoichiometry, duration):
-    """
-    Run a simulation with given model.
+class Gillespie:
+    def __init__(self, initial_state, reaction_matrix, propensity_func, max_time, M, start_t=0.0):
+        self.start_time = start_t
+        self.max_time = max_time
+        self.propensity_func = propensity_func
+        self.state = initial_state
+        self.reaction_matrix = reaction_matrix
+        self.M = M
 
-    :param initials: List of initial population counts.
-    :param propensities: List of functions that take population counts and give transition rates.
-    :param stoichiometry: List of integers, how the population counts change per transition.
-    :param duration: Maximum simulation time.
-    :return: Two lists: The time points and population counts per time point.
-    """
+        self.index = np.array([i for i in range(M)])
+        self.x = [self.state[0]]
+        self.y = [self.state[1]]
+        self.time_record = [start_t]
+        self.propensity_matrix = np.zeros(M)
 
-    # initial values
-    times = [0.0]
-    counts = [initials]
+    def run(self):
+        time = self.start_time
+        while time < self.max_time:
+            for i in range(self.M):
+                self.propensity_matrix[i] = self.propensity_func[i](self.state[0], self.state[1])
 
-    # while finish time has not been reached
-    while times[-1] < duration:
-        # get current state
-        state = counts[-1]
+            r_tot = sum(self.propensity_matrix)
+            tau = - (1 / r_tot) * np.log(np.random.rand())
 
-        # calculate rates with respective propensities
-        rates = [prop(*state) for prop in propensities]
+            self.state += self.reaction_matrix[np.random.choice(self.index, p=self.propensity_matrix/r_tot)]
+            time += tau
 
-        # stop loop if no transitions available
-        if all(r == 0 for r in rates):
-            break
-
-        # randomly draw one transition
-        transition = random.choices(stoichiometry, weights=rates)[0]
-        next_state = [a + b for a, b in zip(state, transition)]
-
-        # draw next time increment from random exponential distribution
-        # dt = math.log(1.0 / random.random()) / sum(weights)
-        dt = random.expovariate(sum(rates))
-
-        # append new values
-        times.append(times[-1] + dt)
-        counts.append(next_state)
-
-    return times, counts
+            self.x.append(self.state[0])
+            self.y.append(self.state[1])
+            self.time_record.append(time)
+        return self.x, self.y, self.time_record

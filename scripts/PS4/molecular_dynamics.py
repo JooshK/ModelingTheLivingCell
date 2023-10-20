@@ -12,16 +12,16 @@ def lennard_jones_potential(distance, epsilon, sigma):
     return 4 * epsilon * ((sigma ** 12 / distance ** 6) - (sigma ** 6 / distance ** 3))
 
 
-def calculate_force(delta, r2_ij, epsilon, sigma):
+def calculate_scalar_force(r2_ij, epsilon, sigma):
     """
-    Calculates the LJ force on a particle in direction delta from another particle
-    :param delta: The direction to calculate the force in
+    Calculates the scalar LJ force on a particle from another particle
     :param r2_ij: Square distance
     :param epsilon: LJ parameter energy
     :param sigma: LJ parameter size
     :return: Pairwise force between two particles
     """
-    return delta * (((48 * epsilon) / r2_ij) * ((sigma ** 12 / r2_ij ** 6) - (0.5 * sigma ** 6 / r2_ij ** 3)))
+    r = np.linalg.norm(r2_ij)
+    return 48 * epsilon * ((sigma**12/r**13) - 0.5 * (sigma**6/r**7))
 
 
 def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
@@ -52,10 +52,10 @@ def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
             r2_ij = delta_x ** 2 + delta_y ** 2 + delta_z ** 2  # the squared distance
 
             potential_ij = lennard_jones_potential(r2_ij, epsilon, sigma)  # LJ potential
-            f_ij_x = calculate_force(delta_x, r2_ij, epsilon, sigma)  # force in each direction
-            f_ij_y = calculate_force(delta_y, r2_ij, epsilon, sigma)
-            f_ij_z = calculate_force(delta_z, r2_ij, epsilon, sigma)
-            f_ij = np.array([f_ij_x, f_ij_y, f_ij_z])
+
+            r = np.sqrt(r2_ij)
+            f_scalar = calculate_scalar_force(r2_ij, epsilon, sigma)
+            f_vector = f_scalar * dr / r
 
             forces[i] = forces[i] + f_ij  # Uses N3L to calculate the force on j as - force on i
             forces[j] = forces[j] + f_ij
@@ -147,7 +147,7 @@ def run(initial_positions, T, m, dt, epsilon, sigma, box_length, iterations):
         forces.append(new_forces)
         kinetic_energies.append(new_kinetic_energy)
 
-        if i % 10 == 0:
+        if i % 100 == 0:
             print("Final total energy", total_energy)
             print("Configuration", configurations[i])
             print("Velocities", velocities[i])
