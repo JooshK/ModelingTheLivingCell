@@ -1,27 +1,38 @@
 import pandas as pd
 import numpy as np
 
-rng = np.random.default_rng(123)
-k_b = 1.38
+rng = np.random.default_rng(1234)
+k_b = 1
 
 
 def lennard_jones_potential(distance, epsilon, sigma):
     """
-    returns LJ potential with parameters epsilon, sigma
+    returns LJ potential with parameters epsilon, sigma.
     """
-    return 4 * epsilon * ((sigma ** 12 / distance ** 6) - (sigma ** 6 / distance ** 3))
+    return 4 * epsilon * ((sigma ** 12 / distance ** 12) - (sigma ** 6 / distance ** 6))
 
 
-def calculate_scalar_force(r2_ij, epsilon, sigma):
+def calculate_scalar_force(r, epsilon, sigma):
     """
     Calculates the scalar LJ force on a particle from another particle
-    :param r2_ij: Square distance
+    :param r: distance
     :param epsilon: LJ parameter energy
     :param sigma: LJ parameter size
     :return: Pairwise force between two particles
     """
-    r = np.linalg.norm(r2_ij)
-    return 48 * epsilon * ((sigma**12/r**13) - 0.5 * (sigma**6/r**7))
+    return 48 * epsilon * ((sigma ** 12 / r ** 13) - 0.5 * (sigma ** 6 / r ** 7))
+
+
+def calculate_distance(r1, r2, box_length):
+    """
+    Calculates the absolute distance using PBC
+    :param r1: Position 1
+    :param r2: Position 2
+    :param box_length: Length of PBC box
+    """
+    dr = r1 - r2
+    dr -= box_length * np.round(dr / box_length)
+    return dr
 
 
 def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
@@ -40,27 +51,17 @@ def calculate_configuration_force(coordinates, epsilon, sigma, box_length):
         for j in range(i + 1, len(coordinates)):
             particle_2 = coordinates[j]
 
-            # Calculates the delta in each direction and enforce PBC
-            delta_x = particle_1[0] - particle_2[0]
-            delta_y = particle_1[1] - particle_2[1]
-            delta_z = particle_1[2] - particle_2[2]
+            dist = calculate_distance(particle_1, particle_2, box_length)
+            r = np.linalg.norm(dist)
+            potential += lennard_jones_potential(r, epsilon, sigma)
 
-            delta_x -= box_length * np.round(delta_x / box_length)
-            delta_y -= box_length * np.round(delta_y / box_length)
-            delta_z -= box_length * np.round(delta_z / box_length)
+            scalar_force = calculate_scalar_force(r, epsilon, sigma)
+            force = scalar_force * dist / r  # force in the radial direction, see
+            # https://math.stackexchange.com/questions/1742524/numerical-force-due-to-lennard-jones-potential
 
-            r2_ij = delta_x ** 2 + delta_y ** 2 + delta_z ** 2  # the squared distance
-
-            potential_ij = lennard_jones_potential(r2_ij, epsilon, sigma)  # LJ potential
-
-            r = np.sqrt(r2_ij)
-            f_scalar = calculate_scalar_force(r2_ij, epsilon, sigma)
-            f_vector = f_scalar * dr / r
-
-            forces[i] = forces[i] + f_ij  # Uses N3L to calculate the force on j as - force on i
-            forces[j] = forces[j] + f_ij
-
-            potential += potential_ij
+            # Uses N3L to update the force matrix
+            forces[i, :] += force
+            forces[j, :] -= force
 
     return potential, forces
 
@@ -69,90 +70,66 @@ def verlet_position_update(position, velocity, force, mass, time_step):
     return position + time_step * velocity + ((time_step ** 2) / 2 * mass) * force
 
 
-def verlet_velocity_update(force, mass, time_step):
-    return (time_step/2*mass)*force
+def verlet_velocity_update(velocity, force_1, force_2, mass, dt):
+    return velocity + (dt / 2 * mass) * (force_1 + force_2)
 
 
 def verlet_propagation_position(positions, velocities, forces, m, dt):
-    updated_positions = np.zeros((len(positions), 3))
-    for particle_i in range(len(positions)):
-        new_position = verlet_position_update(positions[particle_i, :], velocities[particle_i, :],
-                                              forces[particle_i, :], m, dt)
-        updated_positions[particle_i] = new_position
-
-    return updated_positions
+    positions[:] = verlet_position_update(positions, velocities, forces, m, dt)
 
 
-def verlet_propagation_velocity(velocities, forces, m, dt):
-    updated_velocities = np.zeros((len(velocities), 3))
-    for particle_i in range(len(velocities)):
-        v_adj = verlet_velocity_update(forces[particle_i, :], m, dt)
-        v_new = v_adj + velocities[0, :]
-        updated_velocities[particle_i] = v_new
-
-    return updated_velocities
+def verlet_propagation_velocity(velocities, force_1, force_2, m, dt):
+    velocities[:] = verlet_velocity_update(velocities, force_1, force_2, m, dt)
 
 
 def calculate_kinetic_energy(velocities, mass):
     kinetic_energy = 0
     for v_i in velocities:
-        squared_speed = v_i[0] ** 2 + v_i[1] ** 2 + v_i[2] ** 2
-        kinetic_energy_i = 0.5 * mass * squared_speed
+        v_i_squared = np.sum(v_i ** 2)
+        kinetic_energy_i = 0.5 * mass * v_i_squared
 
         kinetic_energy += kinetic_energy_i
     return kinetic_energy
 
 
-def run(initial_positions, T, m, dt, epsilon, sigma, box_length, iterations):
-    dof = 3 * len(initial_positions) - 3
+def maxwell_boltzmann(temp, n, m, kb):
+    velocity_matrix = np.sqrt(kb * temp / m) * rng.standard_normal((n, 3))
+    average_velocity = np.sum(velocity_matrix) / n
+    velocity_matrix -= average_velocity  # zero the mean velocity
 
-    # initialize the velocity and shift according to total momentum
-    initial_velocities = rng.standard_normal((len(initial_positions), 3)) * np.sqrt(T)
-    px = np.sum(m * initial_velocities, axis=0)
-    initial_velocities -= px / len(initial_positions)
+    return velocity_matrix
 
-    # initialize the potential and the forces
-    initial_potential, initial_forces = calculate_configuration_force(initial_positions, epsilon, sigma, box_length)
 
-    # calculate energies
-    initial_ke = calculate_kinetic_energy(initial_velocities, m)
-    total_energy = initial_ke + initial_potential
+def run(positions, T, m, dt, epsilon, sigma, box_length, iterations):
+    n = len(positions)
+    velocities = maxwell_boltzmann(T, n, m, k_b)
+    potential_record = []
+    kinetic_record = []
+    energies = []
 
-    velocities = [initial_velocities]
-    potentials = [initial_potential]
-    kinetic_energies = [initial_ke]
-    configurations = [initial_positions]
-    forces = [initial_forces]
+    potential, forces = calculate_configuration_force(positions, epsilon, sigma, box_length)
+    potential_record.append(potential)
 
-    print("Initial total energy", total_energy)
+    kinetic_energy = calculate_kinetic_energy(velocities, m)
+    kinetic_record.append(kinetic_energy)
+    total_energy = potential + kinetic_energy
+    energies.append(total_energy)
 
-    # simulation loop
-    for i in range(iterations):
-        current_position = configurations[i]
-        current_velocities = velocities[i]
-        current_forces = forces[i]
+    for i in range(1, iterations):
+        print(potential)
+        verlet_propagation_velocity(positions, velocities, forces, m, dt)
 
-        position_dt = verlet_propagation_position(current_position, current_velocities, current_forces, m, dt)
-        velocity_dt_1 = verlet_propagation_velocity(current_velocities, current_forces, m, dt)
+        old_forces = np.copy(forces)
+        potential, forces = calculate_configuration_force(positions, epsilon, sigma, box_length)
+        potential_record.append(potential)
 
-        new_potential, new_forces = calculate_configuration_force(position_dt, epsilon, sigma, box_length)
-        velocity_dt = verlet_propagation_velocity(velocity_dt_1, new_forces, m, dt)
+        verlet_propagation_velocity(velocities, old_forces, forces, m, dt)
+        kinetic_energy = calculate_kinetic_energy(velocities, m)
+        kinetic_record.append(kinetic_energy)
 
-        new_kinetic_energy = calculate_kinetic_energy(velocity_dt, m)
-        total_energy = new_kinetic_energy + new_potential
+        total_energy = potential + kinetic_energy
+        energies.append(total_energy)
 
-        configurations.append(position_dt)
-        velocities.append(velocity_dt)
-        potentials.append(new_potential)
-        forces.append(new_forces)
-        kinetic_energies.append(new_kinetic_energy)
+    return potential_record, kinetic_record, energies, forces, velocities, positions
 
-        if i % 100 == 0:
-            print("Final total energy", total_energy)
-            print("Configuration", configurations[i])
-            print("Velocities", velocities[i])
-            print("Potential", potentials[i])
-            print("Forces", forces[i])
-            print("Kinetic Energy", kinetic_energies[i])
 
-    return configurations, velocities, potentials, forces, kinetic_energies
