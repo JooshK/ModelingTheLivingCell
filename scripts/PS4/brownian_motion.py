@@ -43,3 +43,15 @@ class BrownianMotion:
             self.potential = self.bi_stable_V()
 
         return self.trajectory
+
+    def plot_trajectory(self):
+        trajectory = np.array(self.trajectory)
+        trajectory_x = trajectory[:, 0]
+        trajectory_y = trajectory[:, 1]
+
+        xi = np.linspace(-1.4, 1.4, len(trajectory_x))
+        yi = np.linspace(-1.9, 1.9, len(trajectory_y))
+        X, Y = np.meshgrid(xi, yi)
+
+        Z = 5 * (X ** 2 - 1) ** 2 + 10 * (Y ** 2) * (1 / (np.tan(70 / 180 * np.pi)) ** 2)
+        return Z
