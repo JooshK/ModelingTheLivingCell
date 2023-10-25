@@ -84,17 +84,18 @@ def verlet_propagation_velocity(velocities, force_1, force_2, m, dt):
     velocities[:] = verlet_velocity_update(velocities, force_1, force_2, m, dt)
 
 
-def calculate_kinetic_energy(velocities, mass):
+def calculate_kinetic_energy(velocities, mass, dof):
     """
     Calculate the kinetic energy given a velocity matrix
     """
     kinetic_energy = 0
+    T = 0
     for v_i in velocities:
         v_i_squared = np.sum(v_i ** 2)
         kinetic_energy_i = 0.5 * mass * v_i_squared
-
+        T += v_i_squared / dof
         kinetic_energy += kinetic_energy_i
-    return kinetic_energy
+    return kinetic_energy, T
 
 
 def maxwell_boltzmann(temp, n, m, kb=1):
@@ -124,21 +125,23 @@ def run(positions, T, m, dt, epsilon, sigma, box_length, iterations):
     :param sigma: LJ param size
     :param box_length: Box length to enforce PBC
     :param iterations: Number of iterations to run for
-    :return: The potential, kinetic, and total energy, the final force, velocity and positions
+    :return: The potential, kinetic, total energy and temperature; the final force, velocity and positions
     """
     n = len(positions)
     velocities = maxwell_boltzmann(T, n, m)  # initialize velocities using the Maxwell-Boltzmann dist
     potential_record = []
     kinetic_record = []
     energies = []
+    temperatures = []
 
     # Set up initial values and append to appropriate lists
 
     potential, forces = calculate_configuration_force(positions, epsilon, sigma, box_length)
     potential_record.append(potential)
 
-    kinetic_energy = calculate_kinetic_energy(velocities, m)
+    kinetic_energy, T = calculate_kinetic_energy(velocities, m, 3*n - 3)
     kinetic_record.append(kinetic_energy)
+    temperatures.append(T)
     total_energy = potential + kinetic_energy
     energies.append(total_energy)
 
@@ -150,10 +153,11 @@ def run(positions, T, m, dt, epsilon, sigma, box_length, iterations):
         potential_record.append(potential)
 
         verlet_propagation_velocity(velocities, old_forces, forces, m, dt)  # velocity using updated forces
-        kinetic_energy = calculate_kinetic_energy(velocities, m)
+        kinetic_energy, T = calculate_kinetic_energy(velocities, m, 3 * n - 3)
         kinetic_record.append(kinetic_energy)
+        temperatures.append(T)
 
         total_energy = potential + kinetic_energy
         energies.append(total_energy)
 
-    return potential_record, kinetic_record, energies, forces, velocities, positions
+    return potential_record, kinetic_record, energies, temperatures, forces, velocities, positions
