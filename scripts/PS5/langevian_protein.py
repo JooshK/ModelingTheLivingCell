@@ -57,3 +57,74 @@ def calculate_configuration_force(coordinates, residue, k, l):
             forces[j, :] -= force
 
     return potential, forces
+
+
+def calculate_stochastic_force(friction, velocities, kT, m, R, dt):
+    forces = np.zeros((len(velocities), 3))
+
+    for i, vel in enumerate(velocities):
+        scalar_force = R - friction*m*vel
+        forces[i, :] = scalar_force
+
+    return forces
+
+
+def run(coordinates, m, residues, k, l, friction, kT, dt, iterations):
+    n = len(coordinates)
+    velocities = maxwell_boltzmann(kT, n, m)  # initialize velocities using the Maxwell-Boltzmann dist
+    potential_record = []
+    kinetic_record = []
+    energies = []
+    temperatures = []
+
+    potential, f_c = calculate_configuration_force(coordinates, residues, k, l)
+    R = rng.normal(0, np.sqrt(2 * kT * m * friction / dt))
+    total_forces = f_c + calculate_stochastic_force(friction, velocities, kT, m, R, dt)
+    potential_record.append(potential)
+
+    kinetic_energy, T = calculate_kinetic_energy(velocities, m, 3 * n - 3)
+    kinetic_record.append(kinetic_energy)
+    temperatures.append(T)
+    total_energy = potential + kinetic_energy
+    energies.append(total_energy)
+
+    for i in range(iterations):
+        print(coordinates)
+        verlet_propagation_position(coordinates, velocities, total_forces, m, dt)  # update the position
+
+        old_total_force = np.copy(total_forces)
+        potential, f_c = calculate_configuration_force(coordinates, residues, k, l)
+        potential_record.append(potential)
+
+        R = rng.normal(0, np.sqrt(2*kT*m*friction/dt))
+        verlet_propagation_velocity(friction, velocities, old_total_force, f_c, R, m, dt)
+
+        total_forces = f_c + calculate_stochastic_force(friction, velocities, kT, m, R, dt)
+
+        kinetic_energy, T = calculate_kinetic_energy(velocities, m, 3 * n - 3)
+        kinetic_record.append(kinetic_energy)
+        temperatures.append(T)
+
+        total_energy = potential + kinetic_energy
+        energies.append(total_energy)
+
+    return potential_record, kinetic_record, energies, temperatures, total_forces, velocities, coordinates
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
