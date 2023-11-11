@@ -1,26 +1,36 @@
 import numpy as np
-from PS4.molecular_dynamics import *
+from PS4.molecular_dynamics import lennard_jones_potential, calculate_scalar_force
+from PS4.molecular_dynamics import maxwell_boltzmann, calculate_kinetic_energy
+
+rng = np.random.default_rng()
 
 
 def harmonic_bond_potential(r, k, l):
-    return 0.5*k*(abs(r) - l)**2
+    return 0.5 * k * (abs(r) - l) ** 2
 
 
 def harmonic_bond_force(r, k, l):
-    return (-k * r * (abs(r) - l))/abs(r)
+    return (-k * r * (abs(r) - l)) / abs(r)
 
 
 def langevian_force(friction, m, kT, v, dt):
-    stochastic_force = rng.normal(0, np.sqrt((2*kT*m*friction)/dt))
-    return stochastic_force - friction*m*v
+    stochastic_force = rng.normal(0, np.sqrt((2 * kT * m * friction) / dt))
+    return stochastic_force - friction * m * v
 
 
-def verlet_velocity_update(friction, v, m, f, f_c, R, dt):
-    return 1/(1 + dt*friction*0.5) * (v + (dt/(2*m))*f + (dt/(2*m))*(f_c + R))
+def verlet_position_update(coordinates, velocities, forces, m, dt):
+    new_coordinates = np.zeros((len(coordinates), 3))
+    for i in range(len(coordinates)):
+        new_coordinates[i, :] = coordinates[i, :] + dt * velocities[i, :] + (1 / (2 * m)) * (dt ** 2) * forces[i, :]
+    return new_coordinates
 
 
-def verlet_propagation_velocity(friction, velocities, force, force_c, R, m, dt):
-    velocities[:] = verlet_velocity_update(friction, velocities, m, force, force_c, R, dt)
+def verlet_velocity_update(friction, velocities, m, force, f_c, R, dt):
+    new_velocities = np.zeros((len(velocities), 3))
+    for i in range(len(velocities)):
+        new_velocities[i, :] = (1 / (1 + dt * friction * 0.5) *
+                                (velocities[i, :] + (dt / (2 * m)) * force[i, :] + (dt / (2 * m)) * (f_c[i, :] + R[i, :])))
+    return new_velocities
 
 
 def calculate_configuration_force(coordinates, residue, k, l):
@@ -42,8 +52,8 @@ def calculate_configuration_force(coordinates, residue, k, l):
                     potential += lennard_jones_potential(r, epsilon=1, sigma=1)
                     scalar_force = calculate_scalar_force(r, epsilon=1, sigma=1)
                 else:
-                    potential += lennard_jones_potential(r, epsilon=2/3, sigma=1)
-                    scalar_force = calculate_scalar_force(r, epsilon=2/3, sigma=1)
+                    potential += lennard_jones_potential(r, epsilon=2 / 3, sigma=1)
+                    scalar_force = calculate_scalar_force(r, epsilon=2 / 3, sigma=1)
             else:  # bonded potential
                 potential += harmonic_bond_potential(r, k, l)
                 scalar_force = harmonic_bond_force(r, k, l)
@@ -59,14 +69,12 @@ def calculate_configuration_force(coordinates, residue, k, l):
     return potential, forces
 
 
+def random_term(friction, velocities, kT, m, dt):
+    return np.random.normal(0, np.sqrt(2 * kT * m * friction / dt), (len(velocities), 3))
+
+
 def calculate_stochastic_force(friction, velocities, kT, m, R, dt):
-    forces = np.zeros((len(velocities), 3))
-
-    for i, vel in enumerate(velocities):
-        scalar_force = R - friction*m*vel
-        forces[i, :] = scalar_force
-
-    return forces
+    return R - friction * m * velocities
 
 
 def run(coordinates, m, residues, k, l, friction, kT, dt, iterations):
@@ -78,7 +86,7 @@ def run(coordinates, m, residues, k, l, friction, kT, dt, iterations):
     temperatures = []
 
     potential, f_c = calculate_configuration_force(coordinates, residues, k, l)
-    R = rng.normal(0, np.sqrt(2 * kT * m * friction / dt))
+    R = random_term(friction, velocities, kT, m, dt)
     total_forces = f_c + calculate_stochastic_force(friction, velocities, kT, m, R, dt)
     potential_record.append(potential)
 
@@ -87,44 +95,30 @@ def run(coordinates, m, residues, k, l, friction, kT, dt, iterations):
     temperatures.append(T)
     total_energy = potential + kinetic_energy
     energies.append(total_energy)
+    current_state = coordinates
 
     for i in range(iterations):
-        print(coordinates)
-        verlet_propagation_position(coordinates, velocities, total_forces, m, dt)  # update the position
+        new_position = verlet_position_update(current_state, velocities, total_forces, m, dt)  # update the position
 
-        old_total_force = np.copy(total_forces)
-        potential, f_c = calculate_configuration_force(coordinates, residues, k, l)
+        potential, f_c_new = calculate_configuration_force(new_position, residues, k, l)
+        R = random_term(friction, velocities, kT, m, dt)
         potential_record.append(potential)
 
-        R = rng.normal(0, np.sqrt(2*kT*m*friction/dt))
-        verlet_propagation_velocity(friction, velocities, old_total_force, f_c, R, m, dt)
+        new_velocities = verlet_velocity_update(friction, velocities, m, total_forces, f_c_new, R, dt)
 
-        total_forces = f_c + calculate_stochastic_force(friction, velocities, kT, m, R, dt)
+        total_forces = f_c_new + calculate_stochastic_force(friction, new_velocities, kT, m, R, dt)
 
-        kinetic_energy, T = calculate_kinetic_energy(velocities, m, 3 * n - 3)
+        kinetic_energy, T = calculate_kinetic_energy(new_velocities, m, 3 * n - 3)
         kinetic_record.append(kinetic_energy)
         temperatures.append(T)
 
         total_energy = potential + kinetic_energy
         energies.append(total_energy)
 
-    return potential_record, kinetic_record, energies, temperatures, total_forces, velocities, coordinates
+        current_state = new_position
+        velocities = new_velocities
 
+        if i % 1000 == 0:
+            print(potential, kinetic_energy, total_energy)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return potential_record, kinetic_record, energies, temperatures, total_forces, velocities, current_state
