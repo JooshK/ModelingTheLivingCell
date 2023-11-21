@@ -1,6 +1,6 @@
 import numpy as np
-from molecular_dynamics import lennard_jones_potential, calculate_scalar_force
-from molecular_dynamics import maxwell_boltzmann, calculate_kinetic_energy
+from PS4.molecular_dynamics import lennard_jones_potential, calculate_scalar_force
+from PS4.molecular_dynamics import maxwell_boltzmann, calculate_kinetic_energy
 
 rng = np.random.default_rng()
 
